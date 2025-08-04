@@ -8,11 +8,12 @@ const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// MongoDB connection
+// Environment variables
 const MONGO_URI = process.env.MONGO_URI;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
+// MongoDB connection
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -58,6 +59,9 @@ app.post('/api/chat', async (req, res) => {
     // Add user message
     chat.messages.push({ role: 'user', content: userMessage });
 
+    // Prepare clean message history (remove _id and other fields)
+    const cleanedMessages = chat.messages.map(({ role, content }) => ({ role, content }));
+
     // Call Groq
     const groqRes = await fetch(GROQ_API_URL, {
       method: 'POST',
@@ -67,7 +71,7 @@ app.post('/api/chat', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'llama3-8b-8192',
-        messages: chat.messages
+        messages: cleanedMessages
       })
     });
 
@@ -86,7 +90,7 @@ app.post('/api/chat', async (req, res) => {
     // Add assistant reply
     chat.messages.push({ role: 'assistant', content: reply });
 
-    // Trim history
+    // Trim history to max 30 messages
     if (chat.messages.length > 30) {
       chat.messages = chat.messages.slice(-30);
     }

@@ -26,7 +26,16 @@ app.post('/api/chat', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'llama3-8b-8192',
-        messages: [{ role: 'user', content: userMessage }]
+        messages: [
+          {
+            role: 'system',
+            content: `You are Aira, an AI assistant created by Amon. You are friendly, smart, and always helpful. You speak casually like a real friend, and refer to yourself as "I".`
+          },
+          {
+            role: 'user',
+            content: userMessage
+          }
+        ]
       })
     });
 

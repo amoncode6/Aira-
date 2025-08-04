@@ -59,10 +59,10 @@ app.post('/api/chat', async (req, res) => {
     // Add user message
     chat.messages.push({ role: 'user', content: userMessage });
 
-    // Prepare clean message history (remove _id and other fields)
+    // Clean messages (no _id fields)
     const cleanedMessages = chat.messages.map(({ role, content }) => ({ role, content }));
 
-    // Call Groq
+    // Call Groq API
     const groqRes = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -76,8 +76,6 @@ app.post('/api/chat', async (req, res) => {
     });
 
     const data = await groqRes.json();
-
-    // Log the response
     console.log('🟢 Groq API response:', JSON.stringify(data, null, 2));
 
     if (!data || !data.choices || !data.choices[0]?.message?.content) {
@@ -87,10 +85,10 @@ app.post('/api/chat', async (req, res) => {
 
     const reply = data.choices[0].message.content.trim();
 
-    // Add assistant reply
+    // Add assistant message to chat history
     chat.messages.push({ role: 'assistant', content: reply });
 
-    // Trim history to max 30 messages
+    // Limit history to 30
     if (chat.messages.length > 30) {
       chat.messages = chat.messages.slice(-30);
     }
@@ -102,6 +100,27 @@ app.post('/api/chat', async (req, res) => {
   } catch (err) {
     console.error('❌ Chat error:', err);
     res.status(500).json({ reply: `Oops, something went wrong: ${err.message}` });
+  }
+});
+
+// History endpoint
+app.get('/api/history', async (req, res) => {
+  const userId = req.query.userId || 'default-user';
+
+  try {
+    const chat = await Chat.findOne({ userId });
+    if (!chat) {
+      return res.json({ messages: [] });
+    }
+
+    // Return user & assistant messages only
+    const filtered = chat.messages.filter(msg =>
+      msg.role === 'user' || msg.role === 'assistant'
+    );
+    res.json({ messages: filtered });
+  } catch (err) {
+    console.error('❌ History error:', err);
+    res.status(500).json({ messages: [] });
   }
 });
 

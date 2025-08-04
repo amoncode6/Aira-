@@ -1,39 +1,45 @@
 const express = require('express');
 const path = require('path');
-const { OpenAI } = require('openai');
+const fetch = require('node-fetch');
 require('dotenv').config();
 
 const app = express();
-
-// Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// Setup OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-// Chat route
 app.post('/api/chat', async (req, res) => {
-  try {
-    const userMessage = req.body.message;
+  const userMessage = req.body.message;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: userMessage }]
+  if (!userMessage || userMessage.trim() === '') {
+    return res.status(400).json({ reply: 'Please enter a message.' });
+  }
+
+  try {
+    const groqRes = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama3-8b-8192',
+        messages: [{ role: 'user', content: userMessage }]
+      })
     });
 
-    const reply = completion.choices[0].message.content.trim();
+    const data = await groqRes.json();
+    const reply = data.choices?.[0]?.message?.content?.trim() || 'No response received.';
     res.json({ reply });
   } catch (err) {
-    console.error('OpenAI error:', err);
-    res.status(500).json({ reply: 'Oops, something went wrong.' });
+    console.error('Groq API error:', err);
+    res.status(500).json({ reply: 'Oops, Groq went wrong.' });
   }
 });
 
-// Listen
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Groq chatbot running on http://localhost:${PORT}`);
 });

@@ -11,7 +11,6 @@
 
     body {
       margin: 0;
-      padding: 0;
       font-family: 'Segoe UI', sans-serif;
       background: linear-gradient(to right, #141e30, #243b55);
       display: flex;
@@ -20,145 +19,192 @@
       height: 100vh;
     }
 
-    #chat-box {
-      background: #ffffff;
-      border-radius: 16px;
-      padding: 20px;
-      width: 90%;
+    #chat-container {
+      width: 95%;
       max-width: 500px;
-      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+      background: #fff;
+      color: #000;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      background: #243b55;
+      color: #fff;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
       gap: 10px;
     }
 
-    h2 {
-      margin: 0;
-      font-size: 1.6rem;
-      color: #243b55;
-      text-align: center;
+    header img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
     }
 
-    #chat-messages {
-      max-height: 400px;
+    header h2 {
+      margin: 0;
+      font-size: 1.3rem;
+    }
+
+    #chat-box {
+      padding: 1rem;
+      flex: 1;
       overflow-y: auto;
-      padding: 10px;
-      border: 1px solid #eee;
-      border-radius: 10px;
       background: #f9f9f9;
     }
 
     .message {
       margin: 10px 0;
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 18px;
       line-height: 1.5;
-      word-wrap: break-word;
+      display: inline-block;
+      clear: both;
+      animation: fadeIn 0.3s ease-in-out;
     }
 
     .you {
-      text-align: right;
-      color: #111;
+      float: right;
       background: #d1e7dd;
-      display: inline-block;
-      padding: 10px 15px;
-      border-radius: 20px;
-      max-width: 70%;
+      text-align: right;
     }
 
     .aira {
-      text-align: left;
+      float: left;
       background: #cfe2ff;
-      color: #111;
-      display: inline-block;
-      padding: 10px 15px;
-      border-radius: 20px;
-      max-width: 70%;
+      text-align: left;
+    }
+
+    #chat-form {
+      display: flex;
+      padding: 0.8rem;
+      border-top: 1px solid #ddd;
+      background: #fff;
     }
 
     #user-input {
-      padding: 12px;
+      flex: 1;
+      padding: 10px;
       font-size: 1rem;
       border-radius: 10px;
       border: 1px solid #ccc;
       outline: none;
-      width: 100%;
     }
 
-    button {
-      margin-top: 10px;
-      padding: 12px;
+    #send-btn {
+      margin-left: 8px;
+      padding: 10px 16px;
       background: #243b55;
-      color: white;
+      color: #fff;
       border: none;
-      font-size: 1rem;
       border-radius: 10px;
       cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #send-btn:hover {
+      background: #141e30;
+    }
+
+    #typing {
+      font-style: italic;
+      font-size: 0.9rem;
+      padding: 0 1rem;
+      color: #888;
+      display: none;
+    }
+
+    #new-chat {
+      padding: 0.5rem 1rem;
+      background: #eee;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #333;
+      border-radius: 0 0 10px 10px;
       transition: background 0.3s;
     }
 
-    button:hover {
-      background: #141e30;
+    #new-chat:hover {
+      background: #ddd;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-  <div id="chat-box">
-    <h2>💬 Chat with Aira</h2>
-    <div id="chat-messages"></div>
-    <input type="text" id="user-input" placeholder="Type your message..." />
-    <button onclick="sendMessage()">Send</button>
+  <div id="chat-container">
+    <header>
+      <img src="https://www.dropbox.com/scl/fi/p24egr6d4k84cc38dzptr/IMG_20250804_225512_345.jpg?rlkey=ce5borlprk5vym9b844yydbmo&raw=1" alt="Aira">
+      <h2>Aira - Your AI Friend 💬</h2>
+    </header>
+
+    <div id="chat-box"></div>
+    <div id="typing">💬 Aira is typing...</div>
+
+    <form id="chat-form" onsubmit="sendMessage(event)">
+      <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" />
+      <button id="send-btn" type="submit">Send</button>
+    </form>
+
+    <button id="new-chat" onclick="startNewChat()">🧹 Start New Chat</button>
   </div>
 
   <script>
-    const userId = localStorage.getItem('userId') || `user-${Date.now()}`;
-    localStorage.setItem('userId', userId);
+    const chatBox = document.getElementById('chat-box');
+    const input = document.getElementById('user-input');
+    const typing = document.getElementById('typing');
 
-    const chatMessages = document.getElementById('chat-messages');
-
-    function addMessage(content, sender) {
+    function appendMessage(content, className) {
       const msg = document.createElement('div');
-      msg.className = `message ${sender}`;
+      msg.className = `message ${className}`;
       msg.textContent = content;
-      chatMessages.appendChild(msg);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      chatBox.appendChild(msg);
+      chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    async function loadHistory() {
-      try {
-        const res = await fetch(`/api/history?userId=${userId}`);
-        const data = await res.json();
-        if (data.messages && data.messages.length > 0) {
-          data.messages.forEach(({ role, content }) => {
-            addMessage(content, role === 'user' ? 'you' : 'aira');
-          });
-        }
-      } catch (err) {
-        addMessage('⚠️ Failed to load chat history.', 'aira');
-      }
-    }
-
-    async function sendMessage() {
-      const input = document.getElementById('user-input');
+    async function sendMessage(event) {
+      event.preventDefault();
       const message = input.value.trim();
       if (!message) return;
 
-      addMessage(message, 'you');
+      appendMessage(message, 'you');
       input.value = '';
+      typing.style.display = 'block';
 
       try {
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, userId })
+          body: JSON.stringify({ message })
         });
         const data = await res.json();
-        addMessage(data.reply, 'aira');
+        appendMessage(data.reply, 'aira');
       } catch (err) {
-        addMessage('❌ Failed to get a response from Aira.', 'aira');
+        appendMessage('⚠️ Error: No reply from Aira.', 'aira');
+      } finally {
+        typing.style.display = 'none';
       }
     }
 
-    // Load history on page load
-    loadHistory();
+    function startNewChat() {
+      chatBox.innerHTML = '';
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'new_chat_reset_command_🔁', userId: 'default-user' })
+      }).catch(console.error);
+    }
   </script>
 </body>
 </html>

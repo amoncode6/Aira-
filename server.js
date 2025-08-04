@@ -8,19 +8,20 @@ const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// Environment variables
+// Env Variables
 const MONGO_URI = process.env.MONGO_URI;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const IMAGE_GEN_URL = 'https://api.groq.com/openai/v1/images/generations'; // Placeholder if you integrate image API
 
-// MongoDB connection
+// Connect MongoDB
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Mongoose schema
+// Schema
 const chatSchema = new mongoose.Schema({
   userId: String,
   messages: [
@@ -32,45 +33,45 @@ const chatSchema = new mongoose.Schema({
 });
 const Chat = mongoose.model('Chat', chatSchema);
 
-// 🔁 Groq API Call Helper with Retry + Fallback
+// 🔁 Retry Groq API with fallback
 async function callGroq(messages, model = 'llama3-8b-8192', retries = 3, delay = 1500) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
+  for (let i = 1; i <= retries; i++) {
     const res = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ model, messages })
     });
 
     const data = await res.json();
-    console.log(`🔁 Attempt ${attempt} - Groq Response:`, data);
+    console.log(`🔁 Groq Attempt ${i}:`, data);
 
     if (data?.choices?.[0]?.message?.content) {
       return data.choices[0].message.content.trim();
     }
 
-    const errorMsg = data?.error?.message || '';
-    if (errorMsg.includes('over capacity') && attempt < retries) {
-      await new Promise(r => setTimeout(r, delay * attempt));
+    const error = data?.error?.message || '';
+    if (error.includes('over capacity') && i < retries) {
+      await new Promise(r => setTimeout(r, delay * i));
     } else {
       break;
     }
   }
 
-  // 🔄 Final fallback to larger model
+  // Fallback to bigger model
   const fallback = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      Authorization: `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ model: 'llama3-70b-8192', messages })
   });
 
   const fallbackData = await fallback.json();
-  console.log('🆘 Fallback response:', fallbackData);
+  console.log('🆘 Fallback Groq response:', fallbackData);
 
   if (fallbackData?.choices?.[0]?.message?.content) {
     return fallbackData.choices[0].message.content.trim();
@@ -79,7 +80,7 @@ async function callGroq(messages, model = 'llama3-8b-8192', retries = 3, delay =
   throw new Error(fallbackData?.error?.message || 'All Groq attempts failed.');
 }
 
-// 🧠 /api/chat endpoint
+// 🧠 Chat Endpoint
 app.post('/api/chat', async (req, res) => {
   const userMessage = req.body.message;
   const userId = req.body.userId || 'default-user';
@@ -103,11 +104,25 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
+    // ✨ Special trigger for "new chat"
+    if (userMessage.toLowerCase().includes('reset_chat_now')) {
+      chat.messages = chat.messages.slice(0, 1);
+      await chat.save();
+      return res.json({ reply: '✅ New chat started!' });
+    }
+
     chat.messages.push({ role: 'user', content: userMessage });
 
-    const cleaned = chat.messages.map(({ role, content }) => ({ role, content }));
+    // 🖼️ Check for image generation
+    const lower = userMessage.toLowerCase();
+    if (lower.startsWith('create ') || lower.startsWith('generate ')) {
+      // Optional: integrate DALL·E or any image API here
+      const prompt = userMessage.replace(/^(create|generate)\s+/i, '');
+      return res.json({ reply: `🖼️ Image requested for: "${prompt}". (Feature coming soon!)` });
+    }
 
-    const reply = await callGroq(cleaned);
+    const cleanedMessages = chat.messages.map(({ role, content }) => ({ role, content }));
+    const reply = await callGroq(cleanedMessages);
 
     chat.messages.push({ role: 'assistant', content: reply });
 
@@ -124,7 +139,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// 🗃️ /api/history endpoint
+// 🗃️ Get Chat History
 app.get('/api/history', async (req, res) => {
   const userId = req.query.userId || 'default-user';
 
@@ -132,17 +147,17 @@ app.get('/api/history', async (req, res) => {
     const chat = await Chat.findOne({ userId });
     if (!chat) return res.json({ messages: [] });
 
-    const filtered = chat.messages.filter(msg =>
-      msg.role === 'user' || msg.role === 'assistant'
+    const messages = chat.messages.filter(
+      m => m.role === 'user' || m.role === 'assistant'
     );
-    res.json({ messages: filtered });
+    res.json({ messages });
   } catch (err) {
     console.error('❌ History error:', err);
     res.status(500).json({ messages: [] });
   }
 });
 
-// 🚀 Start server
+// 🚀 Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);

@@ -8,10 +8,10 @@ const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// Replace with your own MongoDB connection string or .env
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://linmaximilian1:9wWaGsACoCmPvfXG@aira.fxres0b.mongodb.net/?retryWrites=true&w=majority&appName=Aira';
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+// MongoDB connection
+const MONGO_URI = process.env.MONGO_URI;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
@@ -19,7 +19,7 @@ mongoose.connect(MONGO_URI, {
 }).then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Schema and model
+// Mongoose schema
 const chatSchema = new mongoose.Schema({
   userId: String,
   messages: [
@@ -31,7 +31,7 @@ const chatSchema = new mongoose.Schema({
 });
 const Chat = mongoose.model('Chat', chatSchema);
 
-// Chat API
+// Chat endpoint
 app.post('/api/chat', async (req, res) => {
   const userMessage = req.body.message;
   const userId = req.body.userId || 'default-user';
@@ -46,17 +46,19 @@ app.post('/api/chat', async (req, res) => {
     if (!chat) {
       chat = new Chat({
         userId,
-        messages: [{
-          role: 'system',
-          content: `You are Aira, an AI assistant created by Amon. You're friendly, helpful, and casual. Speak like a real friend.`
-        }]
+        messages: [
+          {
+            role: 'system',
+            content: `You are Aira, an AI assistant created by Amon. Be helpful, casual, and friendly.`
+          }
+        ]
       });
     }
 
-    // Add user message to history
+    // Add user message
     chat.messages.push({ role: 'user', content: userMessage });
 
-    // Send to Groq
+    // Call Groq
     const groqRes = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -70,12 +72,21 @@ app.post('/api/chat', async (req, res) => {
     });
 
     const data = await groqRes.json();
-    const reply = data.choices?.[0]?.message?.content?.trim() || 'No response from Groq.';
 
-    // Add assistant reply to history
+    // Log the response
+    console.log('🟢 Groq API response:', JSON.stringify(data, null, 2));
+
+    if (!data || !data.choices || !data.choices[0]?.message?.content) {
+      console.error('❌ Invalid Groq response:', data);
+      return res.status(500).json({ reply: 'Groq returned no valid reply.' });
+    }
+
+    const reply = data.choices[0].message.content.trim();
+
+    // Add assistant reply
     chat.messages.push({ role: 'assistant', content: reply });
 
-    // Limit message history
+    // Trim history
     if (chat.messages.length > 30) {
       chat.messages = chat.messages.slice(-30);
     }
@@ -83,13 +94,14 @@ app.post('/api/chat', async (req, res) => {
     await chat.save();
 
     res.json({ reply });
+
   } catch (err) {
     console.error('❌ Chat error:', err);
-    res.status(500).json({ reply: 'Oops, something went wrong.' });
+    res.status(500).json({ reply: `Oops, something went wrong: ${err.message}` });
   }
 });
 
-// Server start
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);

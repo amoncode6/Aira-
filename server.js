@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
 const mongoose = require('mongoose');
+const axios = require('axios'); // for Replicate
 require('dotenv').config();
 
 const app = express();
@@ -12,7 +13,7 @@ app.use(express.json());
 const MONGO_URI = process.env.MONGO_URI;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const IMAGE_GEN_URL = 'https://api.groq.com/openai/v1/images/generations'; // Placeholder if you integrate image API
+const REPLICATE_API_KEY = process.env.REPLICATE_API_KEY;
 
 // Connect MongoDB
 mongoose.connect(MONGO_URI, {
@@ -111,16 +112,53 @@ app.post('/api/chat', async (req, res) => {
       return res.json({ reply: '✅ New chat started!' });
     }
 
-    chat.messages.push({ role: 'user', content: userMessage });
-
-    // 🖼️ Check for image generation
+    // 🖼️ Detect image generation prompt
     const lower = userMessage.toLowerCase();
     if (lower.startsWith('create ') || lower.startsWith('generate ')) {
-      // Optional: integrate DALL·E or any image API here
       const prompt = userMessage.replace(/^(create|generate)\s+/i, '');
-      return res.json({ reply: `🖼️ Image requested for: "${prompt}". (Feature coming soon!)` });
+      const replicateResponse = await axios.post(
+        'https://api.replicate.com/v1/predictions',
+        {
+          version: "eaa43976b7c8a4f8a220edb90cf2a5191cb9604d3a2e8380ab4aa2dbb1e50fdc", // SDXL 1.0
+          input: { prompt }
+        },
+        {
+          headers: {
+            'Authorization': `Token ${REPLICATE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const prediction = replicateResponse.data;
+      console.log('🎨 Replicate prediction started:', prediction.id);
+
+      // Poll the status
+      let outputUrl = '';
+      for (let i = 0; i < 10; i++) {
+        const check = await axios.get(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+          headers: { Authorization: `Token ${REPLICATE_API_KEY}` }
+        });
+
+        if (check.data.status === 'succeeded') {
+          outputUrl = check.data.output?.[0];
+          break;
+        } else if (check.data.status === 'failed') {
+          throw new Error('Image generation failed.');
+        }
+
+        await new Promise(r => setTimeout(r, 1500));
+      }
+
+      if (outputUrl) {
+        return res.json({ reply: `🖼️ Here's your image: ${outputUrl}` });
+      } else {
+        throw new Error('Image generation timed out.');
+      }
     }
 
+    // 💬 Normal chat
+    chat.messages.push({ role: 'user', content: userMessage });
     const cleanedMessages = chat.messages.map(({ role, content }) => ({ role, content }));
     const reply = await callGroq(cleanedMessages);
 
@@ -135,7 +173,7 @@ app.post('/api/chat', async (req, res) => {
 
   } catch (err) {
     console.error('❌ Chat error:', err);
-    res.status(500).json({ reply: `Groq failed: ${err.message}` });
+    res.status(500).json({ reply: `❌ Error: ${err.message}` });
   }
 });
 

@@ -12,20 +12,18 @@
     body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(to right, #141e30, #243b55);
+      background: #f0f2f5;
       display: flex;
-      align-items: center;
       justify-content: center;
-      height: 100vh;
+      padding: 20px;
     }
 
     #chat-container {
-      width: 95%;
-      max-width: 500px;
-      background: #fff;
-      color: #000;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      width: 100%;
+      max-width: 700px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -33,16 +31,16 @@
 
     header {
       background: #243b55;
-      color: #fff;
+      color: white;
       padding: 1rem;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
     }
 
     header img {
-      width: 40px;
-      height: 40px;
+      width: 45px;
+      height: 45px;
       border-radius: 50%;
       object-fit: cover;
     }
@@ -52,41 +50,45 @@
       font-size: 1.3rem;
     }
 
+    #top-bar {
+      padding: 0.8rem 1rem;
+      background: #f9f9f9;
+      border-bottom: 1px solid #ddd;
+    }
+
     #chat-box {
       padding: 1rem;
       flex: 1;
       overflow-y: auto;
-      background: #f9f9f9;
+      max-height: 70vh;
     }
 
     .message {
       margin: 10px 0;
-      max-width: 80%;
+      max-width: 85%;
       padding: 10px 14px;
-      border-radius: 18px;
+      border-radius: 16px;
       line-height: 1.5;
       display: inline-block;
-      clear: both;
       animation: fadeIn 0.3s ease-in-out;
     }
 
     .you {
-      float: right;
       background: #d1e7dd;
+      align-self: flex-end;
       text-align: right;
     }
 
     .aira {
-      float: left;
-      background: #cfe2ff;
-      text-align: left;
+      background: #e3e6ff;
+      align-self: flex-start;
     }
 
     #chat-form {
       display: flex;
-      padding: 0.8rem;
-      border-top: 1px solid #ddd;
-      background: #fff;
+      padding: 1rem;
+      border-top: 1px solid #ccc;
+      background: white;
     }
 
     #user-input {
@@ -95,22 +97,16 @@
       font-size: 1rem;
       border-radius: 10px;
       border: 1px solid #ccc;
-      outline: none;
     }
 
     #send-btn {
-      margin-left: 8px;
-      padding: 10px 16px;
+      margin-left: 10px;
+      padding: 10px 18px;
       background: #243b55;
-      color: #fff;
+      color: white;
       border: none;
       border-radius: 10px;
       cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    #send-btn:hover {
-      background: #141e30;
     }
 
     #typing {
@@ -122,22 +118,23 @@
     }
 
     #new-chat {
+      font-size: 0.9rem;
       padding: 0.5rem 1rem;
       background: #eee;
       border: none;
+      border-radius: 8px;
+      margin-left: 1rem;
       cursor: pointer;
-      font-size: 0.9rem;
-      color: #333;
-      border-radius: 0 0 10px 10px;
-      transition: background 0.3s;
     }
 
-    #new-chat:hover {
-      background: #ddd;
+    .image-preview {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-top: 10px;
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
+      from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
@@ -149,15 +146,17 @@
       <h2>Aira - Your AI Friend 💬</h2>
     </header>
 
+    <div id="top-bar">
+      <button id="new-chat" onclick="startNewChat()">🧹 New Chat</button>
+    </div>
+
     <div id="chat-box"></div>
     <div id="typing">💬 Aira is typing...</div>
 
     <form id="chat-form" onsubmit="sendMessage(event)">
-      <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" />
+      <input type="text" id="user-input" placeholder="Ask anything or try 'generate a cat robot'" autocomplete="off" />
       <button id="send-btn" type="submit">Send</button>
     </form>
-
-    <button id="new-chat" onclick="startNewChat()">🧹 Start New Chat</button>
   </div>
 
   <script>
@@ -168,7 +167,32 @@
     function appendMessage(content, className) {
       const msg = document.createElement('div');
       msg.className = `message ${className}`;
-      msg.textContent = content;
+
+      // If it's a URL that ends in an image format
+      if (typeof content === 'string' && content.match(/\.(jpeg|jpg|png|gif|webp)$/i)) {
+        const img = document.createElement('img');
+        img.src = content;
+        img.alt = "Generated Image";
+        img.className = "image-preview";
+        msg.appendChild(img);
+      } else if (content.includes('http') && content.includes('.')) {
+        // If it's a URL in a sentence
+        const parts = content.split(' ');
+        parts.forEach(word => {
+          if (word.startsWith('http')) {
+            const link = document.createElement('a');
+            link.href = word;
+            link.textContent = '[View Image]';
+            link.target = "_blank";
+            msg.appendChild(link);
+          } else {
+            msg.append(word + ' ');
+          }
+        });
+      } else {
+        msg.textContent = content;
+      }
+
       chatBox.appendChild(msg);
       chatBox.scrollTop = chatBox.scrollHeight;
     }
@@ -191,7 +215,7 @@
         const data = await res.json();
         appendMessage(data.reply, 'aira');
       } catch (err) {
-        appendMessage('⚠️ Error: No reply from Aira.', 'aira');
+        appendMessage('⚠️ No reply from Aira.', 'aira');
       } finally {
         typing.style.display = 'none';
       }
@@ -202,7 +226,7 @@
       fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'new_chat_reset_command_🔁', userId: 'default-user' })
+        body: JSON.stringify({ message: 'reset_chat_now' })
       }).catch(console.error);
     }
   </script>

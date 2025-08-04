@@ -5,10 +5,7 @@
   <title>Aira Chatbot ✨</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
@@ -17,18 +14,16 @@
       justify-content: center;
       padding: 20px;
     }
-
     #chat-container {
       width: 100%;
-      max-width: 700px;
+      max-width: 720px;
       background: white;
       border-radius: 12px;
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
-
     header {
       background: #243b55;
       color: white;
@@ -37,60 +32,52 @@
       align-items: center;
       gap: 12px;
     }
-
     header img {
       width: 45px;
       height: 45px;
       border-radius: 50%;
       object-fit: cover;
     }
-
     header h2 {
       margin: 0;
       font-size: 1.3rem;
     }
-
     #top-bar {
       padding: 0.8rem 1rem;
       background: #f9f9f9;
       border-bottom: 1px solid #ddd;
     }
-
     #chat-box {
       padding: 1rem;
       flex: 1;
       overflow-y: auto;
       max-height: 70vh;
+      display: flex;
+      flex-direction: column;
     }
-
     .message {
       margin: 10px 0;
-      max-width: 85%;
       padding: 10px 14px;
       border-radius: 16px;
       line-height: 1.5;
-      display: inline-block;
+      max-width: 85%;
       animation: fadeIn 0.3s ease-in-out;
     }
-
     .you {
-      background: #d1e7dd;
       align-self: flex-end;
+      background: #d1e7dd;
       text-align: right;
     }
-
     .aira {
-      background: #e3e6ff;
       align-self: flex-start;
+      background: #e3e6ff;
     }
-
     #chat-form {
       display: flex;
       padding: 1rem;
       border-top: 1px solid #ccc;
       background: white;
     }
-
     #user-input {
       flex: 1;
       padding: 10px;
@@ -98,7 +85,6 @@
       border-radius: 10px;
       border: 1px solid #ccc;
     }
-
     #send-btn {
       margin-left: 10px;
       padding: 10px 18px;
@@ -108,7 +94,6 @@
       border-radius: 10px;
       cursor: pointer;
     }
-
     #typing {
       font-style: italic;
       font-size: 0.9rem;
@@ -116,7 +101,6 @@
       color: #888;
       display: none;
     }
-
     #new-chat {
       font-size: 0.9rem;
       padding: 0.5rem 1rem;
@@ -126,13 +110,11 @@
       margin-left: 1rem;
       cursor: pointer;
     }
-
     .image-preview {
       max-width: 100%;
       border-radius: 10px;
       margin-top: 10px;
     }
-
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
@@ -142,7 +124,7 @@
 <body>
   <div id="chat-container">
     <header>
-      <img src="https://www.dropbox.com/scl/fi/p24egr6d4k84cc38dzptr/IMG_20250804_225512_345.jpg?rlkey=ce5borlprk5vym9b844yydbmo&raw=1" alt="Aira">
+      <img src="https://www.dropboxusercontent.com/scl/fi/p24egr6d4k84cc38dzptr/IMG_20250804_225512_345.jpg?rlkey=ce5borlprk5vym9b844yydbmo&raw=1" alt="Aira">
       <h2>Aira - Your AI Friend 💬</h2>
     </header>
 
@@ -154,7 +136,7 @@
     <div id="typing">💬 Aira is typing...</div>
 
     <form id="chat-form" onsubmit="sendMessage(event)">
-      <input type="text" id="user-input" placeholder="Ask anything or try 'generate a cat robot'" autocomplete="off" />
+      <input type="text" id="user-input" placeholder="Ask or try: generate a cat robot" autocomplete="off" />
       <button id="send-btn" type="submit">Send</button>
     </form>
   </div>
@@ -168,7 +150,6 @@
       const msg = document.createElement('div');
       msg.className = `message ${className}`;
 
-      // If it's a URL that ends in an image format
       if (typeof content === 'string' && content.match(/\.(jpeg|jpg|png|gif|webp)$/i)) {
         const img = document.createElement('img');
         img.src = content;
@@ -176,17 +157,16 @@
         img.className = "image-preview";
         msg.appendChild(img);
       } else if (content.includes('http') && content.includes('.')) {
-        // If it's a URL in a sentence
         const parts = content.split(' ');
         parts.forEach(word => {
           if (word.startsWith('http')) {
             const link = document.createElement('a');
             link.href = word;
-            link.textContent = '[View Image]';
+            link.textContent = '[Image Link]';
             link.target = "_blank";
             msg.appendChild(link);
           } else {
-            msg.append(word + ' ');
+            msg.append(document.createTextNode(word + ' '));
           }
         });
       } else {

@@ -51,6 +51,7 @@
     .message {
       margin: 10px 0;
       line-height: 1.5;
+      word-wrap: break-word;
     }
 
     .you {
@@ -108,32 +109,56 @@
   </div>
 
   <script>
+    const userId = localStorage.getItem('userId') || `user-${Date.now()}`;
+    localStorage.setItem('userId', userId);
+
+    const chatMessages = document.getElementById('chat-messages');
+
+    function addMessage(content, sender) {
+      const msg = document.createElement('div');
+      msg.className = `message ${sender}`;
+      msg.textContent = content;
+      chatMessages.appendChild(msg);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch(`/api/history?userId=${userId}`);
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(({ role, content }) => {
+            addMessage(content, role === 'user' ? 'you' : 'aira');
+          });
+        }
+      } catch (err) {
+        addMessage('⚠️ Failed to load chat history.', 'aira');
+      }
+    }
+
     async function sendMessage() {
       const input = document.getElementById('user-input');
       const message = input.value.trim();
       if (!message) return;
 
-      const chatMessages = document.getElementById('chat-messages');
-      const youMsg = document.createElement('div');
-      youMsg.className = 'message you';
-      youMsg.textContent = message;
-      chatMessages.appendChild(youMsg);
+      addMessage(message, 'you');
       input.value = '';
 
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
-      });
-
-      const data = await res.json();
-      const airaMsg = document.createElement('div');
-      airaMsg.className = 'message aira';
-      airaMsg.textContent = data.reply;
-      chatMessages.appendChild(airaMsg);
-
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, userId })
+        });
+        const data = await res.json();
+        addMessage(data.reply, 'aira');
+      } catch (err) {
+        addMessage('❌ Failed to get a response from Aira.', 'aira');
+      }
     }
+
+    // Load history on page load
+    loadHistory();
   </script>
 </body>
 </html>
